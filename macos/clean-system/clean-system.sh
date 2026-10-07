@@ -1,45 +1,45 @@
 #!/bin/bash
 # clean-system.sh - safe cache/temp cleanup for macOS.
-# Run with -h or --help for usage. See LEGGIMI.txt for details.
+# Run with -h or --help for usage. See README.txt for details.
 
 set -u
 
 usage() {
   cat <<'EOF'
-clean-system.sh - pulizia sicura di cache, log, temp e Docker su macOS
+clean-system.sh - safe cleanup of caches, logs, temp files and Docker on macOS
 
-USO
-  ./clean-system.sh [opzioni]
+USAGE
+  ./clean-system.sh [options]
 
-COMPORTAMENTO DI DEFAULT
-  Dry-run: mostra cosa verrebbe liberato, non cancella nulla.
+DEFAULT BEHAVIOR
+  Dry-run: shows what would be freed, deletes nothing.
 
-OPZIONI
-  --apply            Cancella davvero, chiedendo conferma per ogni gruppo
-  --yes              Con --apply: nessuna domanda, cancella tutto
-  --docker-volumes   Con Docker acceso: prune anche dei volumi non usati
-                     (ATTENZIONE: possibile perdita di dati dei container)
-  --gradle           Cancella anche ~/.gradle/caches (si riscarica, lento)
-  --projects         Cancella anche .venv e node_modules dei progetti in
-                     ~/workspace (cartella cambiabile con WORKSPACE=/percorso).
-                     Salta i progetti senza requirements.txt/pyproject.toml/
-                     Pipfile/setup.py (per .venv) o package.json (node_modules),
-                     perche' non sarebbero ricostruibili. Non tocca .env.
-  -h, --help         Mostra questo aiuto
+OPTIONS
+  --apply            Actually delete, asking for confirmation for each group
+  --yes              With --apply: no questions, delete everything
+  --docker-volumes   With Docker running: also prune unused volumes
+                     (WARNING: possible loss of container data)
+  --gradle           Also delete ~/.gradle/caches (re-downloaded, slow)
+  --projects         Also delete .venv and node_modules of projects in
+                     ~/workspace (folder changeable with WORKSPACE=/path).
+                     Skips projects without requirements.txt/pyproject.toml/
+                     Pipfile/setup.py (for .venv) or package.json (node_modules),
+                     because they could not be rebuilt. Does not touch .env.
+  -h, --help         Show this help
 
-ESEMPI
-  ./clean-system.sh                  # anteprima
-  ./clean-system.sh --apply          # pulizia interattiva
-  ./clean-system.sh --apply --yes    # pulizia automatica
-  ./clean-system.sh --projects       # anteprima incluso .venv/node_modules
+EXAMPLES
+  ./clean-system.sh                  # preview
+  ./clean-system.sh --apply          # interactive cleanup
+  ./clean-system.sh --apply --yes    # automatic cleanup
+  ./clean-system.sh --projects       # preview including .venv/node_modules
   ./clean-system.sh --apply --projects
 
-NON TOCCA MAI
+NEVER TOUCHES
   ~/Library/Preferences, Application Support (config), Keychains,
-  LaunchAgents, /var/folders, i tuoi file e progetti.
+  LaunchAgents, /var/folders, your files and projects.
 
-NON CANCELLA AUTOMATICAMENTE (solo suggerisce)
-  Modelli Ollama, emulatori Android, SDK, .venv/node_modules dei progetti.
+NEVER DELETES AUTOMATICALLY (only suggests)
+  Ollama models, Android emulators, SDKs, .venv/node_modules of projects.
 EOF
 }
 
@@ -52,11 +52,11 @@ for a in "$@"; do
     --docker-volumes) DOCKER_VOLUMES=1 ;;
     --gradle) GRADLE=1 ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "Opzione sconosciuta: $a"; exit 1 ;;
+    *) echo "Unknown option: $a"; exit 1 ;;
   esac
 done
 
-[ "$(uname)" = "Darwin" ] || { echo "Solo macOS."; exit 1; }
+[ "$(uname)" = "Darwin" ] || { echo "macOS only."; exit 1; }
 
 bold=$'\033[1m'; green=$'\033[32m'; yellow=$'\033[33m'; blue=$'\033[34m'; cyan=$'\033[36m'; red=$'\033[31m'; reset=$'\033[0m'
 sep="${cyan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}"
@@ -70,8 +70,8 @@ human() { awk -v k="$1" 'BEGIN {
 
 confirm() {
   [ "$YES" -eq 1 ] && return 0
-  read -r -p "  Procedo? [s/N] " r
-  [[ "$r" =~ ^[sSyY]$ ]]
+  read -r -p "  Proceed? [y/N] " r
+  [[ "$r" =~ ^[yY]$ ]]
 }
 
 # group "<title>" path...   -> deletes the CONTENT of each existing path
@@ -87,16 +87,16 @@ group() {
   [ "$APPLY" -eq 0 ] && return
   if confirm; then
     for p in "${existing[@]}"; do
-      case "$p" in ""|"/"|"$HOME"|"$HOME/") echo "   ${red}✗ rifiuto: $p${reset}"; continue ;; esac
+      case "$p" in ""|"/"|"$HOME"|"$HOME/") echo "   ${red}✗ refused: $p${reset}"; continue ;; esac
       if [ -d "$p" ]; then
         find "$p" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null
       else
         rm -f "$p"
       fi
     done
-    echo "   ${green}✓ ok${reset}"
+    echo "   ${green}✓ done${reset}"
   else
-    echo "   ${yellow}⊘ saltato${reset}"
+    echo "   ${yellow}⊘ skipped${reset}"
   fi
 }
 
@@ -107,53 +107,53 @@ cmd_group() {
   echo "${bold}${cyan}⚙ $title${reset}"
   echo "   ${yellow}→${reset} $*"
   [ "$APPLY" -eq 0 ] && return
-  if confirm; then "$@" >/dev/null 2>&1 && echo "   ${green}✓ ok${reset}" || echo "   ${yellow}⚠ errore/ignorato${reset}"
-  else echo "   ${yellow}⊘ saltato${reset}"; fi
+  if confirm; then "$@" >/dev/null 2>&1 && echo "   ${green}✓ done${reset}" || echo "   ${yellow}⚠ error/ignored${reset}"
+  else echo "   ${yellow}⊘ skipped${reset}"; fi
 }
 
 echo
 echo "$sep"
-echo "${bold}${blue}🧹 PULIZIA SISTEMA$( [ $APPLY -eq 1 ] && echo " - APPLY" || echo " - DRY-RUN")${reset}"
+echo "${bold}${blue}🧹 SYSTEM CLEANUP$( [ $APPLY -eq 1 ] && echo " - APPLY" || echo " - DRY-RUN")${reset}"
 echo "$sep"
 echo
-echo "${blue}Spazio libero ora:${reset} ${cyan}$(human "$START_FREE")${reset}"
+echo "${blue}Free space now:${reset} ${cyan}$(human "$START_FREE")${reset}"
 echo
 
 # ---- Temp / logs / trash ----
 echo "${sep}"
-echo "${bold}${blue}🗑️  CESTINO & LOG${reset}"
+echo "${bold}${blue}🗑️  TRASH & LOGS${reset}"
 echo "${sep}"
 echo
-group "Cestino" "$HOME/.Trash"
-group "Log utente" "$HOME/Library/Logs"
-group "Crash report" "$HOME/Library/Logs/DiagnosticReports"
-group "Temp utente" "${TMPDIR:-/tmp}"/com.apple.* 2>/dev/null
+group "Trash" "$HOME/.Trash"
+group "User logs" "$HOME/Library/Logs"
+group "Crash reports" "$HOME/Library/Logs/DiagnosticReports"
+group "User temp" "${TMPDIR:-/tmp}"/com.apple.* 2>/dev/null
 echo
 
-# ---- Cache app (regenerable) ----
+# ---- App cache (regenerable) ----
 echo "${sep}"
-echo "${bold}${blue}💾 CACHE APP${reset}"
+echo "${bold}${blue}💾 APP CACHE${reset}"
 echo "${sep}"
 echo
 C="$HOME/Library/Caches"
-group "Cache JetBrains (indici/aggiornamenti, non le impostazioni)" "$C/JetBrains"
-group "Cache Playwright (browser, riscaricati al bisogno)" "$C/ms-playwright"
-group "Cache Google/Chrome" "$C/Google"
-group "Cache Firefox" "$C/Firefox"
-group "Cache pip/virtualenv/node-gyp/typescript" "$C/pip" "$C/virtualenv" "$C/node-gyp" "$C/typescript"
-group "Cache draw.io updater" "$C/draw.io-updater"
-group "Residui installer Docker Desktop" "$HOME/Library/Application Support/com.docker.install"
-group "Cache VS Code" "$HOME/Library/Application Support/Code/CachedData" "$HOME/Library/Application Support/Code/CachedExtensionVSIXs" "$HOME/Library/Application Support/Code/Cache"
-group "Cache npm/yarn" "$HOME/.npm/_cacache" "$HOME/.cache"
-[ "$GRADLE" -eq 1 ] && group "Cache Gradle (lenta da ricostruire)" "$HOME/.gradle/caches" "$HOME/.gradle/daemon"
-group "Android emulator: snapshot RAM (si rigenera)" "$HOME/.android/avd/Pixel_8a.avd/snapshots"
+group "JetBrains cache (indexes/updates, not settings)" "$C/JetBrains"
+group "Playwright cache (browsers, re-downloaded when needed)" "$C/ms-playwright"
+group "Google/Chrome cache" "$C/Google"
+group "Firefox cache" "$C/Firefox"
+group "pip/virtualenv/node-gyp/typescript cache" "$C/pip" "$C/virtualenv" "$C/node-gyp" "$C/typescript"
+group "draw.io updater cache" "$C/draw.io-updater"
+group "Docker Desktop installer leftovers" "$HOME/Library/Application Support/com.docker.install"
+group "VS Code cache" "$HOME/Library/Application Support/Code/CachedData" "$HOME/Library/Application Support/Code/CachedExtensionVSIXs" "$HOME/Library/Application Support/Code/Cache"
+group "npm/yarn cache" "$HOME/.npm/_cacache" "$HOME/.cache"
+[ "$GRADLE" -eq 1 ] && group "Gradle cache (slow to rebuild)" "$HOME/.gradle/caches" "$HOME/.gradle/daemon"
+group "Android emulator: RAM snapshots (regenerated)" "$HOME/.android/avd/Pixel_8a.avd/snapshots"
 
 # ---- Tool-native cleanup ----
 echo "${sep}"
-echo "${bold}${blue}🛠️  STRUMENTI${reset}"
+echo "${bold}${blue}🛠️  TOOLS${reset}"
 echo "${sep}"
 echo
-cmd_group "Homebrew: cache e vecchie versioni" brew brew cleanup -s --prune=all
+cmd_group "Homebrew: cache and old versions" brew brew cleanup -s --prune=all
 cmd_group "Go build cache" go go clean -cache
 cmd_group "pip cache" pip3 pip3 cache purge
 
@@ -165,24 +165,24 @@ echo "${sep}"
 echo
 if command -v docker >/dev/null 2>&1; then
   if docker info >/dev/null 2>&1; then
-    echo "${bold}${cyan}📊 Utilizzo Docker:${reset}"
+    echo "${bold}${cyan}📊 Docker usage:${reset}"
     docker system df | sed 's/^/  /'
     echo
     if [ "$DOCKER_VOLUMES" -eq 1 ]; then
-      cmd_group "Docker prune -a + volumi NON usati" docker docker system prune -a --volumes -f
+      cmd_group "Docker prune -a + UNUSED volumes" docker docker system prune -a --volumes -f
     else
-      cmd_group "Docker prune -a (immagini/container/network non usati)" docker docker system prune -a -f
+      cmd_group "Docker prune -a (unused images/containers/networks)" docker docker system prune -a -f
     fi
   else
-    echo "${yellow}⚠ Docker installato ma daemon spento${reset}"
-    echo "   Avvia Docker Desktop per pulire."
+    echo "${yellow}⚠ Docker installed but daemon not running${reset}"
+    echo "   Start Docker Desktop to clean it."
     echo
-    echo "   ${blue}💡 Tip: Il file Docker.raw sotto${reset}"
+    echo "   ${blue}💡 Tip: The Docker.raw file under${reset}"
     echo "      ${blue}~/Library/Containers/com.docker.docker${reset}"
-    echo "      ${blue}spesso occupa molto spazio in 'Dati di sistema'${reset}"
+    echo "      ${blue}often takes a lot of space in 'System Data'${reset}"
   fi
 else
-  echo "${yellow}⊘ Docker non installato${reset}"
+  echo "${yellow}⊘ Docker not installed${reset}"
 fi
 echo
 
@@ -194,19 +194,19 @@ echo
 if [ "$APPLY" -eq 1 ]; then
   snaps=$(tmutil listlocalsnapshots / 2>/dev/null | grep -c 'com.apple')
   if [ "$snaps" -gt 0 ]; then
-    echo "${bold}${cyan}📸 Snapshot Time Machine locali: ${blue}$snaps${reset}"
+    echo "${bold}${cyan}📸 Local Time Machine snapshots: ${blue}$snaps${reset}"
     echo "   ${yellow}→${reset} sudo tmutil thinlocalsnapshots / 99999999999 4"
   else
-    echo "${green}✓ Nessuno snapshot locale${reset}"
+    echo "${green}✓ No local snapshots${reset}"
   fi
 else
-  echo "${yellow}💡 Lancia con ${bold}--apply${reset}${yellow} per gestire gli snapshot${reset}"
+  echo "${yellow}💡 Run with ${bold}--apply${reset}${yellow} to manage snapshots${reset}"
 fi
 echo
 
 # ---- Optional: project dependencies (.venv / node_modules) ----
 echo "${sep}"
-echo "${bold}${blue}📦 DIPENDENZE PROGETTI${reset}"
+echo "${bold}${blue}📦 PROJECT DEPENDENCIES${reset}"
 echo "${sep}"
 echo
 if [ "$PROJECTS" -eq 1 ]; then
@@ -225,7 +225,7 @@ if [ "$PROJECTS" -eq 1 ]; then
 
   if [ ${#proj[@]} -gt 0 ]; then
     proj_kb=$(size_of "${proj[@]}")
-    echo "${bold}${cyan}📁 .venv / node_modules ricostruibili${reset}  ${blue}$(human "$proj_kb")${reset}  ${cyan}(${#proj[@]} cartelle)${reset}"
+    echo "${bold}${cyan}📁 Rebuildable .venv / node_modules${reset}  ${blue}$(human "$proj_kb")${reset}  ${cyan}(${#proj[@]} folders)${reset}"
     echo
     for d in "${proj[@]}"; do echo "   ${yellow}→${reset} $(human "$(size_of "$d")")  $d"; done
     echo
@@ -234,49 +234,49 @@ if [ "$PROJECTS" -eq 1 ]; then
         for d in "${proj[@]}"; do
           case "$(basename "$d")" in .venv|node_modules) rm -rf "$d" ;; esac
         done
-        echo "   ${green}✓ ok${reset}"
-        echo "   ${blue}💡 Ricrea con: 'pip install -r requirements.txt' o 'npm install'${reset}"
-      else echo "   ${yellow}⊘ saltato${reset}"; fi
+        echo "   ${green}✓ done${reset}"
+        echo "   ${blue}💡 Recreate with: 'pip install -r requirements.txt' or 'npm install'${reset}"
+      else echo "   ${yellow}⊘ skipped${reset}"; fi
     fi
   else
-    echo "${yellow}⊘ Nessun .venv/node_modules ricostruibile in $WS${reset}"
+    echo "${yellow}⊘ No rebuildable .venv/node_modules in $WS${reset}"
   fi
   if [ ${#skipped[@]} -gt 0 ]; then
     echo
-    echo "${yellow}⚠ Saltati (nessun file dipendenze, non ricostruibili):${reset}"
+    echo "${yellow}⚠ Skipped (no dependency file, not rebuildable):${reset}"
     for d in "${skipped[@]}"; do echo "   ${yellow}→${reset} $d"; done
   fi
 else
-  echo "${yellow}💡 Usa ${bold}--projects${reset}${yellow} per gestire .venv/node_modules${reset}"
+  echo "${yellow}💡 Use ${bold}--projects${reset}${yellow} to manage .venv/node_modules${reset}"
 fi
 echo
 
 # ---- Proposals (never auto-deleted) ----
 echo "${sep}"
-echo "${bold}${blue}💭 CANDIDATI MANUALI${reset}"
+echo "${bold}${blue}💭 MANUAL CANDIDATES${reset}"
 echo "${sep}"
 echo
 
 manual_found=0
-[ -d "$HOME/.ollama" ] && { echo "${cyan}🤖 Modelli Ollama:${reset} ${blue}$(human "$(size_of "$HOME/.ollama")")${reset}"; echo "   ${yellow}→${reset} 'ollama list' poi 'ollama rm <modello>'"; echo; manual_found=1; }
-[ -d "$HOME/.android/avd" ] && { echo "${cyan}📱 Emulatori Android:${reset} ${blue}$(human "$(size_of "$HOME/.android/avd")")${reset}"; echo "   ${yellow}→${reset} Android Studio > Device Manager"; echo; manual_found=1; }
-[ -d "$HOME/Library/Android/sdk" ] && { echo "${cyan}📚 Android SDK:${reset} ${blue}$(human "$(size_of "$HOME/Library/Android/sdk")")${reset}"; echo "   ${yellow}→${reset} SDK Manager, togli system image/versioni vecchie"; echo; manual_found=1; }
-[ -d "$HOME/Library/Application Support/JetBrains" ] && { echo "${cyan}🧠 JetBrains config:${reset} ${blue}$(human "$(size_of "$HOME/Library/Application Support/JetBrains")")${reset}"; echo "   ${yellow}→${reset} Elimina cartelle IDE vecchie (es. IdeaIC2025.1)"; echo; manual_found=1; }
-[ -d "$HOME/Library/Group Containers/group.net.whatsapp.WhatsApp.shared" ] && { echo "${cyan}💬 WhatsApp:${reset} ${blue}$(human "$(size_of "$HOME/Library/Group Containers/group.net.whatsapp.WhatsApp.shared")")${reset}"; echo "   ${yellow}→${reset} In-app: Impostazioni > Spazio/Archiviazione"; echo; manual_found=1; }
+[ -d "$HOME/.ollama" ] && { echo "${cyan}🤖 Ollama models:${reset} ${blue}$(human "$(size_of "$HOME/.ollama")")${reset}"; echo "   ${yellow}→${reset} 'ollama list' then 'ollama rm <model>'"; echo; manual_found=1; }
+[ -d "$HOME/.android/avd" ] && { echo "${cyan}📱 Android emulators:${reset} ${blue}$(human "$(size_of "$HOME/.android/avd")")${reset}"; echo "   ${yellow}→${reset} Android Studio > Device Manager"; echo; manual_found=1; }
+[ -d "$HOME/Library/Android/sdk" ] && { echo "${cyan}📚 Android SDK:${reset} ${blue}$(human "$(size_of "$HOME/Library/Android/sdk")")${reset}"; echo "   ${yellow}→${reset} SDK Manager, remove old system images/versions"; echo; manual_found=1; }
+[ -d "$HOME/Library/Application Support/JetBrains" ] && { echo "${cyan}🧠 JetBrains config:${reset} ${blue}$(human "$(size_of "$HOME/Library/Application Support/JetBrains")")${reset}"; echo "   ${yellow}→${reset} Delete old IDE folders (e.g. IdeaIC2025.1)"; echo; manual_found=1; }
+[ -d "$HOME/Library/Group Containers/group.net.whatsapp.WhatsApp.shared" ] && { echo "${cyan}💬 WhatsApp:${reset} ${blue}$(human "$(size_of "$HOME/Library/Group Containers/group.net.whatsapp.WhatsApp.shared")")${reset}"; echo "   ${yellow}→${reset} In-app: Settings > Storage"; echo; manual_found=1; }
 
 top_dirs=$(find "$HOME/workspace" -xdev -maxdepth 5 \( -name node_modules -o -name .venv -o -name target \) -type d -prune 2>/dev/null \
   | while read -r d; do printf "%s\t%s\n" "$(size_of "$d")" "$d"; done | sort -rn | head -10)
 if [ -n "$top_dirs" ]; then
-  echo "${cyan}📦 Top 10 cartelle rigenerabili (progetti fermi):${reset}"
+  echo "${cyan}📦 Top 10 rebuildable folders (idle projects):${reset}"
   echo "$top_dirs" | while IFS=$'\t' read -r kb d; do echo "   ${yellow}→${reset} $(human "$kb")  $d"; done
   manual_found=1
 fi
 
-[ "$manual_found" -eq 0 ] && echo "${green}✓ Nessun candidato manuale trovato${reset}"
+[ "$manual_found" -eq 0 ] && echo "${green}✓ No manual candidates found${reset}"
 echo
 
 echo "${sep}"
-echo "${bold}${blue}📊 RISULTATO FINALE${reset}"
+echo "${bold}${blue}📊 FINAL RESULT${reset}"
 echo "${sep}"
 echo
 
@@ -284,13 +284,13 @@ END_FREE=$(free_kb)
 if [ "$APPLY" -eq 1 ]; then
   freed=$((END_FREE - START_FREE))
   if [ "$freed" -gt 0 ]; then
-    echo "${green}✓ Liberati: ${bold}$(human "$freed")${reset}${green}${reset}"
+    echo "${green}✓ Freed: ${bold}$(human "$freed")${reset}${green}${reset}"
   else
-    echo "${yellow}⊘ Nessuno spazio liberato${reset}"
+    echo "${yellow}⊘ No space freed${reset}"
   fi
-  echo "  Spazio disponibile ora: ${cyan}$(human "$END_FREE")${reset}"
+  echo "  Free space now: ${cyan}$(human "$END_FREE")${reset}"
 else
-  echo "${yellow}Dry-run: nulla cancellato.${reset}"
-  echo "  Rilancia con ${bold}--apply${reset}${yellow} per eseguire la pulizia.${reset}"
+  echo "${yellow}Dry-run: nothing deleted.${reset}"
+  echo "  Re-run with ${bold}--apply${reset}${yellow} to perform the cleanup.${reset}"
 fi
 echo
