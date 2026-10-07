@@ -1,0 +1,114 @@
+CLEAN-SYSTEM-MACOS
+==================
+
+Script per liberare spazio su macOS cancellando solo cose rigenerabili:
+cache, log, Cestino, residui di installer e roba inutilizzata di Docker.
+
+File:
+  clean-system.sh   lo script
+  LEGGIMI.txt       questa guida
+
+
+COMANDI BASE
+------------
+Vai nella cartella:
+  cd ~/workspace/workspace-utils/shell-utils/macos/clean-system
+
+Prima volta (rendi eseguibile):
+  chmod +x clean-system.sh
+
+1) Anteprima (non cancella niente, mostra quanto libererebbe):
+  ./clean-system.sh
+
+2) Pulizia interattiva (chiede conferma per ogni gruppo):
+  ./clean-system.sh --apply
+
+3) Pulizia automatica (nessuna domanda):
+  ./clean-system.sh --apply --yes
+
+4) Aiuto:
+  ./clean-system.sh -h
+  ./clean-system.sh --help
+
+Opzioni extra (si combinano con --apply):
+  --projects        cancella anche .venv e node_modules in ~/workspace
+                    (cartella cambiabile: WORKSPACE=/altro/percorso ./clean-system.sh --projects)
+                    Salta i progetti senza requirements.txt/pyproject.toml/
+                    Pipfile/setup.py o package.json (non ricostruibili).
+                    Non tocca i file .env. Ricrei con:
+                      python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+                      npm install
+  --gradle          cancella anche ~/.gradle/caches (poi riscarica, lento)
+  --docker-volumes  Docker prune anche dei volumi (puo' perdere dati!)
+
+Consiglio: lancia sempre prima l'anteprima.
+
+
+COSA PULISCE
+------------
+- Cestino (~/.Trash)
+- Log utente (~/Library/Logs)
+- Cache JetBrains, Playwright, Google/Chrome, Firefox, pip, virtualenv,
+  node-gyp, typescript, draw.io, VS Code, npm
+- Residui installer Docker Desktop
+- Snapshot RAM dell'emulatore Android (si rigenerano)
+- Homebrew: brew cleanup -s --prune=all
+- Go build cache: go clean -cache
+- pip cache: pip3 cache purge
+- Docker: docker system prune -a  (immagini, container fermi, network non
+  usati). Serve Docker Desktop ACCESO, altrimenti viene saltato.
+
+Dopo la pulizia le app ricostruiscono le cache da sole: al primo avvio
+possono essere un po' piu' lente (es. IntelliJ re-indicizza).
+
+
+COSA NON TOCCA MAI
+------------------
+- ~/Library/Preferences (impostazioni app e macOS)
+- ~/Library/Application Support (config JetBrains, Firefox, ecc.)
+- ~/Library/Keychains, LaunchAgents, /var/folders
+- File personali e progetti
+
+Quindi dopo il riavvio NON devi reimpostare preferenze o impostazioni.
+
+ATTENZIONE: non usare il vecchio ~/workspace/clean-system.sh. Fa
+"rm -rf ~/Library/Preferences/*" e "rm -rf /var/folders/": cancella tutte le
+preferenze e rompe le app in esecuzione.
+
+
+CANDIDATI MANUALI (lo script li elenca ma NON li cancella)
+-----------------------------------------------------------
+- Modelli Ollama (~/.ollama, ~31 GB, il piu' grosso):
+    ollama list
+    ollama rm <nome-modello>
+- Emulatori Android (~/.android/avd): Android Studio > Device Manager
+- Android SDK: SDK Manager, togli system image/versioni vecchie
+- Config JetBrains di versioni IDE vecchie in
+  ~/Library/Application Support/JetBrains
+- .venv / node_modules / target dei progetti fermi (si ricreano):
+    rm -rf <progetto>/.venv   poi pip install ...
+- WhatsApp/Telegram: dalle impostazioni dell'app
+
+
+PERCHE' "DATI DI SISTEMA" E "DOCUMENTI" PESANO TANTO
+----------------------------------------------------
+Impostazioni di Sistema > Generali > Spazio di archiviazione.
+- "Dati di sistema" include ~/Library/Caches, Application Support,
+  Docker.raw, log, swap, snapshot Time Machine.
+- "Documenti" include anche le cartelle nascoste della home:
+  .ollama, .android, .gradle, .npm, .sdkman, .rustup, workspace.
+
+Per ricontrollare dove va lo spazio:
+  du -shx ~/* ~/.[!.]* 2>/dev/null | sort -rh | head -20
+  du -sh ~/Library/* | sort -rh | head
+  tmutil listlocalsnapshots /                  (snapshot Time Machine)
+  sudo tmutil thinlocalsnapshots / 99999999999 4   (libera snapshot)
+  docker system df                             (spazio Docker)
+
+
+RISOLUZIONE PROBLEMI
+--------------------
+- "Docker installato ma daemon spento": apri Docker Desktop, rilancia.
+- "Operation not permitted" su alcune cartelle: Impostazioni di Sistema >
+  Privacy e sicurezza > Accesso completo al disco > abilita il Terminale.
+- Script non parte: chmod +x clean-system.sh
